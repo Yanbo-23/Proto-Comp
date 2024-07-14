@@ -1,7 +1,7 @@
 ## Dataset Description
 This dataset folder contains a total of 1251 .pcd files, divided into 30 different categories.
 The data can be downloaded through [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/117019ce0d884b1c9646/?dl=1) or [Google Drive](https://drive.google.com/file/d/1qtDG3Poo5S_VbrgfDdaf3bT2ORP0qCXk/view?usp=drive_link). 
-The data format is as follows.
+The data format is as follows:
 ├── bathtub/
 
 │   ├── bathtub_000.pcd      
