@@ -2,33 +2,21 @@
 This dataset folder contains a total of 1251 .pcd files, divided into 30 different categories.
 The data can be downloaded through [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/117019ce0d884b1c9646/?dl=1) or [Google Drive](https://drive.google.com/file/d/1qtDG3Poo5S_VbrgfDdaf3bT2ORP0qCXk/view?usp=drive_link). 
 The data format is as follows:
-
+```
 ├── bathtub/
-
-│   ├── bathtub_000.pcd      
-
+│   ├──bathtub_000.pcd      
 │   ├── bathtub_001.pcd       
-
 │   ├── ...
-
 │   └── bathtub_049.pcd
-
 ├── bed/
-
 │   ├── bed_000.pcd
-
 │   ├── bed_001.pcd
-
 │   ├── ...
-
 │   └── bed_049.pcd
-
 ├── ...
-
 ├── wardrobe/
-
 │   └── wardrobe_000.pcd
-
+```
 ## Application Method Description
 
 ### Step 1: Point Cloud Completion
@@ -47,13 +35,13 @@ bash ./scripts/test.sh ${GPU_NAME} --ckpts ${CKPTS_PATH} --config ${CONFIG_PATH}
 
 #### Parameters:
 
-- **${GPU_NAME}**:  specifies the name or number of the GPU to use.
+- ```GPU_NAME```:  specifies the name or number of the GPU to use.
 
-- **${CKPTS_PATH}**:  specifies the path to the model checkpoint file that contains the model parameters saved at a specific training epoch.
+- ```CKPTS_PATH```:  specifies the path to the model checkpoint file that contains the model parameters saved at a specific training epoch.
 
-- **${CONFIG_PATH}**: specifies the path to the configuration file, which contains settings needed during training or testing.
+- ```CONFIG_PATH```: specifies the path to the configuration file, which contains settings needed during training or testing.
 
-- **${SAVE_PATH}**: specifies the path where the results will be saved. 
+- ```SAVE_PATH```: specifies the path where the results will be saved. 
 
 
 
