@@ -1,18 +1,29 @@
 ## Dataset Description
 This dataset folder contains a total of 1251 .pcd files, divided into 30 different categories. The data format is as follows.
-dataset/
 ├── bathtub/
+
 │   ├── bathtub_000.pcd      
+
 │   ├── bathtub_001.pcd       
+
 │   ├── ...
+
 │   └── bathtub_049.pcd
+
 ├── bed/
+
 │   ├── bed_000.pcd
+
 │   ├── bed_001.pcd
+
 │   ├── ...
+
 │   └── bed_049.pcd
+
 ├── ...
+
 ├── wardrobe/
+
 │   └── wardrobe_000.pcd
 
 ## Application Method Description
