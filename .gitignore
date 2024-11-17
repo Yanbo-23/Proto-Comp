@@ -131,7 +131,6 @@ dmypy.json
 # self-define
 *.ckpt
 *.log
-Pointnet2_PyTorch/
 vis*
 __pycache__/
 point_e_model_cache/
@@ -139,7 +138,7 @@ experiments/
 data/PCN/test
 data/PCN/train
 data/PCN/val
-CLIP/
+data/real_sensors_benchmark
 data/ShapeNet55/shapenet_pc
 !extensions/chamfer_dist/
 
