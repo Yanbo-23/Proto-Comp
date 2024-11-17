@@ -1,0 +1,43 @@
+opt_config : { 
+    type: adamw,
+    lr: 0.0001,
+    betas: [0.95, 0.999],
+    eps: 0.000001,
+    weight_decay: 0.001
+}
+
+sched_config : {
+    type: linear,
+    min_lr: 0.00001
+}
+angle_dict : {
+    "1" : " Facing North. ",
+    "2" : " Facing East. ",
+    "3" : " Facing South. ",
+    "4" : " Facing West. "
+}
+
+dataset : {
+  train : { _base_: cfgs/dataset_configs/ShapeNet-55.yaml, 
+            others: {subset: 'train'}},
+  val : { _base_: cfgs/dataset_configs/ShapeNet-55.yaml, 
+            others: {subset: 'test'}},
+  test : { _base_: cfgs/dataset_configs/ShapeNet-55.yaml, 
+            others: {subset: 'test'}},
+  promptdict_path : data/prompt_dict.json  }     
+            
+model : { 
+    backbone_model : base40M-textvec,
+    partial_scale : 1.0,
+    center_num : [512,256],
+    k_knn : 16,
+    partial_c: 512,
+    use_low: False
+}
+  
+total_bs : 48
+step_per_update : 1
+max_epoch : 40 
+val_fequency: 1
+
+consider_metric: CDL1

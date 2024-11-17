@@ -1,0 +1,292 @@
+import numpy as np
+import torch
+import transforms3d
+
+
+class Compose(object):
+    def __init__(self, transforms):
+        self.transformers = []
+        for tr in transforms:
+            transformer = eval(tr["callback"])
+            parameters = tr["parameters"] if "parameters" in tr else None
+            self.transformers.append(
+                {"callback": transformer(parameters), "objects": tr["objects"]}
+            )  # yapf: disable
+
+    def __call__(self, data):
+        for tr in self.transformers:
+            transform = tr["callback"]
+            objects = tr["objects"]
+            rnd_value = np.random.uniform(0, 1)
+            if transform.__class__ in [NormalizeObjectPose]:
+                data = transform(data)
+            else:
+                for k, v in data.items():
+                    if k in objects and k in data:
+                        if transform.__class__ in [RandomMirrorPoints]:
+                            data[k] = transform(v, rnd_value)
+                        else:
+                            data[k] = transform(v)
+
+        return data
+
+
+class ToTensor(object):
+    def __init__(self, parameters):
+        pass
+
+    def __call__(self, arr):
+        shape = arr.shape
+        if len(shape) == 3:  # RGB/Depth Images
+            arr = arr.transpose(2, 0, 1)
+
+        # Ref: https://discuss.pytorch.org/t/torch-from-numpy-not-support-negative-strides/3663/2
+        return torch.from_numpy(arr.copy()).float()
+
+
+class RandomSamplePoints(object):
+    def __init__(self, parameters):
+        self.n_points = parameters["n_points"]
+
+    def __call__(self, ptcloud):
+        choice = np.random.permutation(ptcloud.shape[0])
+        ptcloud = ptcloud[choice[: self.n_points]]
+
+        if ptcloud.shape[0] < self.n_points:
+            zeros = np.zeros((self.n_points - ptcloud.shape[0], 3))
+            ptcloud = np.concatenate([ptcloud, zeros])
+
+        return ptcloud
+
+
+class UpSamplePoints(object):
+    def __init__(self, parameters):
+        self.n_points = parameters["n_points"]
+
+    def __call__(self, ptcloud):
+        curr = ptcloud.shape[0]
+        need = self.n_points - curr
+
+        if need < 0:
+            return ptcloud[np.random.permutation(self.n_points)]
+
+        while curr <= need:
+            ptcloud = np.tile(ptcloud, (2, 1))
+            need -= curr
+            curr *= 2
+
+        choice = np.random.permutation(need)
+        ptcloud = np.concatenate((ptcloud, ptcloud[choice]))
+
+        return ptcloud
+
+
+class RandomMirrorPoints(object):
+    def __init__(self, parameters):
+        pass
+
+    def __call__(self, ptcloud, rnd_value):
+        trfm_mat = transforms3d.zooms.zfdir2mat(1)
+        trfm_mat_x = np.dot(transforms3d.zooms.zfdir2mat(-1, [1, 0, 0]), trfm_mat)
+        trfm_mat_z = np.dot(transforms3d.zooms.zfdir2mat(-1, [0, 0, 1]), trfm_mat)
+        if rnd_value <= 0.25:
+            trfm_mat = np.dot(trfm_mat_x, trfm_mat)
+            trfm_mat = np.dot(trfm_mat_z, trfm_mat)
+        elif rnd_value > 0.25 and rnd_value <= 0.5:  # lgtm [py/redundant-comparison]
+            trfm_mat = np.dot(trfm_mat_x, trfm_mat)
+        elif rnd_value > 0.5 and rnd_value <= 0.75:
+            trfm_mat = np.dot(trfm_mat_z, trfm_mat)
+
+        ptcloud[:, :3] = np.dot(ptcloud[:, :3], trfm_mat.T)
+        return ptcloud
+
+
+class NormalizeObjectPose(object):
+    def __init__(self, parameters):
+        input_keys = parameters["input_keys"]
+        self.ptcloud_key = input_keys["ptcloud"]
+        self.bbox_key = input_keys["bbox"]
+
+    def __call__(self, data):
+        ptcloud = data[self.ptcloud_key]
+        bbox = data[self.bbox_key]
+
+        # Calculate center, rotation and scale
+        # References:
+        # - https://github.com/wentaoyuan/pcn/blob/master/test_kitti.py#L40-L52
+        center = (bbox.min(0) + bbox.max(0)) / 2
+        bbox -= center
+        yaw = np.arctan2(bbox[3, 1] - bbox[0, 1], bbox[3, 0] - bbox[0, 0])
+        rotation = np.array(
+            [[np.cos(yaw), -np.sin(yaw), 0], [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]]
+        )
+        bbox = np.dot(bbox, rotation)
+        scale = bbox[3, 0] - bbox[0, 0]
+        bbox /= scale
+        ptcloud = np.dot(ptcloud - center, rotation) / scale
+        ptcloud = np.dot(ptcloud, [[1, 0, 0], [0, 0, 1], [0, 1, 0]])
+
+        data[self.ptcloud_key] = ptcloud
+        return data
+
+
+class PointcloudScale(object):
+    def __init__(self, lo=0.8, hi=1.25):
+        self.lo, self.hi = lo, hi
+
+    def __call__(self, points):
+        scaler = np.random.uniform(self.lo, self.hi)
+        points[:, 0:3] *= scaler
+        return points
+
+
+class PointcloudRotate(object):
+    def __call__(self, pc, angle=None):
+        trans = pc.size()[2] > pc.size()[1]
+        if trans:
+            pc = pc.transpose(1, 2)
+        col = pc.size()[2]
+        if col == 6:
+            pc = pc[:, :, :3]
+        bsize = pc.size()[0]
+
+        for i in range(bsize):
+            if angle is None:
+                rotation_angle = np.random.randint(1, 5) / 4 * 2 * np.pi
+            else:
+                rotation_angle = angle[i]
+
+            cosval = np.cos(rotation_angle)
+            sinval = np.sin(rotation_angle)
+            rotation_matrix = np.array(
+                [[cosval, sinval, 0], [-sinval, cosval, 0], [0, 0, 1]]
+            )
+            R = torch.from_numpy(rotation_matrix.astype(np.float32)).to(pc.device)
+            pc[i, :, :] = torch.matmul(pc[i], R)
+
+        zeros_tensor = torch.zeros_like(pc)
+        if col == 6:
+            pc = torch.cat((pc, zeros_tensor), dim=2)
+        if trans:
+            pc = pc.transpose(1, 2)
+        return pc
+
+
+class PointcloudReflect(object):
+    def __call__(self, pc, reflect=None):
+        trans = pc.size()[2] > pc.size()[1]
+        if trans:
+            pc = pc.transpose(1, 2)
+        col = pc.size()[2]
+        if col == 6:
+            pc = pc[:, :, :3]
+        bsize = pc.size()[0]
+
+        for i in range(bsize):
+            if reflect[i] == 1:
+                pc[i, :, :] = pc[i, :, :][:, [1, 0, 2]]
+
+        zeros_tensor = torch.zeros_like(pc)
+        if col == 6:
+            pc = torch.cat((pc, zeros_tensor), dim=2)
+        if trans:
+            pc = pc.transpose(1, 2)
+        return pc
+
+
+class PointcloudScaleAndTranslate(object):
+    def __init__(self, scale_low=2.0 / 3.0, scale_high=3.0 / 2.0, translate_range=0.2):
+        self.scale_low = scale_low
+        self.scale_high = scale_high
+        self.translate_range = translate_range
+
+    def __call__(self, pc, xyz1, xyz2):
+        trans = pc.size()[2] > pc.size()[1]
+        if trans:
+            pc = pc.transpose(1, 2)
+        col = pc.size()[2]
+        if col == 6:
+            pc = pc[:, :, :3]
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            pc[i, :, 0:3] = (
+                torch.mul(pc[i, :, 0:3], torch.from_numpy(xyz1).float().cuda())
+                + torch.from_numpy(xyz2).float().cuda()
+            )
+
+        zeros_tensor = torch.zeros_like(pc)
+        if col == 6:
+            pc = torch.cat((pc, zeros_tensor), dim=2)
+        if trans:
+            pc = pc.transpose(1, 2)
+        return pc
+
+
+class PointcloudJitter(object):
+    def __init__(self, std=0.01, clip=0.05):
+        self.std, self.clip = std, clip
+
+    def __call__(self, pc):
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            jittered_data = (
+                pc.new(pc.size(1), 3)
+                .normal_(mean=0.0, std=self.std)
+                .clamp_(-self.clip, self.clip)
+            )
+            pc[i, :, 0:3] += jittered_data
+
+        return pc
+
+
+class PointcloudScale(object):
+    def __init__(self, scale_low=2.0 / 3.0, scale_high=3.0 / 2.0):
+        self.scale_low = scale_low
+        self.scale_high = scale_high
+
+    def __call__(self, pc):
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            xyz1 = np.random.uniform(low=self.scale_low, high=self.scale_high, size=[3])
+
+            pc[i, :, 0:3] = torch.mul(
+                pc[i, :, 0:3], torch.from_numpy(xyz1).float().cuda()
+            )
+
+        return pc
+
+
+class PointcloudTranslate(object):
+    def __init__(self, translate_range=0.2):
+        self.translate_range = translate_range
+
+    def __call__(self, pc):
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            xyz2 = np.random.uniform(
+                low=-self.translate_range, high=self.translate_range, size=[3]
+            )
+
+            pc[i, :, 0:3] = pc[i, :, 0:3] + torch.from_numpy(xyz2).float().cuda()
+
+        return pc
+
+
+class PointcloudRandomInputDropout(object):
+    def __init__(self, max_dropout_ratio=0.875):
+        assert max_dropout_ratio >= 0 and max_dropout_ratio < 1
+        self.max_dropout_ratio = max_dropout_ratio
+
+    def __call__(self, pc):
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            dropout_ratio = np.random.random() * self.max_dropout_ratio  # 0~0.875
+            drop_idx = np.where(np.random.random((pc.size()[1])) <= dropout_ratio)[0]
+            if len(drop_idx) > 0:
+                cur_pc = pc[i, :, :]
+                cur_pc[drop_idx.tolist(), 0:3] = cur_pc[0, 0:3].repeat(
+                    len(drop_idx), 1
+                )  # set to the first point
+                pc[i, :, :] = cur_pc
+
+        return pc

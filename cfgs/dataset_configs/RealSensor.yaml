@@ -1,0 +1,3 @@
+NAME: RealSensor
+dataPath: data/real_sensors_benchmark
+N_POINTS: 1024
