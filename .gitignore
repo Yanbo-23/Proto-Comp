@@ -134,6 +134,7 @@ dmypy.json
 vis*
 __pycache__/
 point_e_model_cache/
+Pointnet2_PyTorch/
 experiments/
 data/PCN/test
 data/PCN/train
