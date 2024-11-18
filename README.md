@@ -169,3 +169,14 @@ CUDA_VISIBLE_DEVICES=0 python main.py --demo --ckpts "experiments/ProtoComp/PCN_
 ```
 ### Evaluation on Real Sensors Benchmark
 - To download datasets and perform evaluations, follow the instructions provided in the [Real Sensors Benchmark README](datasets/README.md)
+
+## Citation
+If you find this code useful for your research, please cite our papers.
+@inproceedings{yu2025protocomp,
+  title={ProtoComp: Diverse Point Cloud Completion with Controllable Prototype},
+  author={Yu, Xumin and Wang, Yanbo and Zhou, Jie and Lu, Jiwen},
+  booktitle={European Conference on Computer Vision},
+  pages={270--286},
+  year={2025},
+  organization={Springer}
+}
