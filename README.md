@@ -172,6 +172,7 @@ CUDA_VISIBLE_DEVICES=0 python main.py --demo --ckpts "experiments/ProtoComp/PCN_
 
 ## Citation
 If you find this code useful for your research, please cite our papers.
+```
 @inproceedings{yu2025protocomp,
   title={ProtoComp: Diverse Point Cloud Completion with Controllable Prototype},
   author={Yu, Xumin and Wang, Yanbo and Zhou, Jie and Lu, Jiwen},
@@ -180,3 +181,4 @@ If you find this code useful for your research, please cite our papers.
   year={2025},
   organization={Springer}
 }
+```
